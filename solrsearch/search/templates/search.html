@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Search with Filters</title>
+    <style>
+        .result {
+            border: 1px solid #ccc;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .search-container {
+            position: relative;
+        }
+        #autocompleteList {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: white;
+            position: absolute;
+            width: 100%;
+            z-index: 1000;
+        }
+        .autocomplete-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .autocomplete-item:hover {
+            background-color: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2>Live Search with Autocomplete and Filters</h2>
+
+    <div class="search-container">
+        <input type="text" id="searchBox" placeholder="Search..." oninput="handleInput()" autocomplete="off" />
+        <div id="autocompleteList"></div>
+    </div>
+
+    <label for="filterBox">Filter by category:</label>
+    <select id="filterBox" onchange="handleInput()">
+        <option value="">All Categories</option>
+        <option value="java">Java</option>
+        <option value="solr">Solr</option>
+        <option value="python">Python</option>
+    </select>
+
+    <div id="results"></div>
+
+    <script>
+        let timeout = null;
+
+        function handleInput() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                performSearch();
+                getAutocompleteSuggestions();
+            }, 300); // Delay to avoid too many requests
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchBox').value;
+            const filter = document.getElementById('filterBox').value;
+            let url = `/search/?q=${encodeURIComponent(query)}`;
+
+            if (filter) {
+                url += `&category=${encodeURIComponent(filter)}`;
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    const resultsContainer = document.getElementById('results');
+                    resultsContainer.innerHTML = '';
+
+                    data.forEach(doc => {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.classList.add('result');
+                        resultDiv.textContent = JSON.stringify(doc, null, 2);
+                        resultsContainer.appendChild(resultDiv);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function getAutocompleteSuggestions() {
+            const query = document.getElementById('searchBox').value;
+            const filter = document.getElementById('filterBox').value;
+            if (query.length < 2) {
+                document.getElementById('autocompleteList').innerHTML = '';
+                return;
+            }
+
+            let url = `/autocomplete/?q=${encodeURIComponent(query)}`;
+            if (filter) {
+                url += `&filter=${encodeURIComponent(filter)}`;
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    const list = document.getElementById('autocompleteList');
+                    list.innerHTML = '';
+                    data.suggestions.forEach(item => {
+                        const div = document.createElement('div');
+                        div.classList.add('autocomplete-item');
+                        div.textContent = item;
+                        div.onclick = () => {
+                            document.getElementById('searchBox').value = item;
+                            list.innerHTML = '';
+                            performSearch(); // Search immediately when user clicks suggestion
+                        };
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!document.getElementById('searchBox').contains(e.target)) {
+                document.getElementById('autocompleteList').innerHTML = '';
+            }
+        });
+    </script>
+</body>
+</html>
